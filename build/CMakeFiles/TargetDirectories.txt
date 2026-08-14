@@ -1,0 +1,4 @@
+/home/gitesh/GitRepo/GiteshMediaPlayer/GiteshMediaPlayer/build/CMakeFiles/GiteshMediaPlayer.dir
+/home/gitesh/GitRepo/GiteshMediaPlayer/GiteshMediaPlayer/build/CMakeFiles/edit_cache.dir
+/home/gitesh/GitRepo/GiteshMediaPlayer/GiteshMediaPlayer/build/CMakeFiles/rebuild_cache.dir
+/home/gitesh/GitRepo/GiteshMediaPlayer/GiteshMediaPlayer/build/CMakeFiles/GiteshMediaPlayer_autogen.dir

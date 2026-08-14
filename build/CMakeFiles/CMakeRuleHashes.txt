@@ -1,0 +1,2 @@
+# Hashes of file build rules.
+4fcbc6cd84c10e7288db40200f9010ef CMakeFiles/GiteshMediaPlayer_autogen

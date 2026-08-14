@@ -10,6 +10,10 @@ namespace Ui {
 class MainWindow;
 }
 QT_END_NAMESPACE
+struct MediaTrack {
+    QString title;
+    QString filePath;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -42,16 +46,25 @@ private slots:
 
 private:
 
+    QString playlistFilePath();
+    void testPlaylistFile();
+    void savePlaylist();
+    void loadPlaylist();
+
     Ui::MainWindow *ui;
 
     QMediaPlayer *player;
 
     QAudioOutput *audioOutput;
-    QList<QUrl> playlist;
+
+    QList<MediaTrack> playlist;
+
     int currentTrackIndex = 0;
 
     bool repeatEnabled = false;
     bool shuffleEnabled = false;
+
+
 };
 
 #endif // MAINWINDOW_H

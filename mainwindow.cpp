@@ -6,12 +6,23 @@
 #include <QFileDialog>
 #include <QUrl>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QXmlStreamWriter>
+#include <QXmlStreamReader>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    qDebug() << "Playlist XML:"
+             << playlistFilePath();
+
+    loadPlaylist();
 
     // Create media player
     player = new QMediaPlayer(this);
@@ -21,6 +32,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Connect audio output to player
     player->setAudioOutput(audioOutput);
+    testPlaylistFile();
 
     // Default volume = 50%
     audioOutput->setVolume(0.5);
@@ -112,19 +124,34 @@ void MainWindow::openMedia()
                         "All Files (*)"
                     );
 
-                    if (fileName.isEmpty())
-                        return;
 
-                      QUrl mediaUrl = QUrl::fromLocalFile(fileName);
+    if (fileName.isEmpty())
+            return;
 
-                      playlist.append(mediaUrl);
+        // Create MediaTrack
+        MediaTrack track;
 
-                      currentTrackIndex = playlist.size() - 1;
+        QFileInfo fileInfo(fileName);
 
-                      player->setSource(mediaUrl);
+        track.title = fileInfo.completeBaseName();
+        track.filePath = fileName;
 
-                      player->play();
-                }
+        // Add MediaTrack to playlist
+        playlist.append(track);
+
+        // Make the newly added track current
+        currentTrackIndex = playlist.size() - 1;
+            qDebug() << "Track added:";
+            qDebug() << "Title:" << track.title;
+            qDebug() << "Path:" << track.filePath;
+            qDebug() << "Playlist size:" << playlist.size();
+        savePlaylist();
+        // Play it
+        player->setSource(QUrl::fromLocalFile(track.filePath));
+        player->play();
+    }
+
+
 /*
  * Play
  */
@@ -303,9 +330,11 @@ void MainWindow::playCurrentTrack()
         currentTrackIndex >= playlist.size())
         return;
 
-    player->setSource(
-        playlist.at(currentTrackIndex)
-    );
+    const MediaTrack &track = playlist.at(currentTrackIndex);
+
+    QUrl mediaUrl = QUrl::fromLocalFile(track.filePath);
+
+    player->setSource(mediaUrl);
 
     player->play();
 }
@@ -321,6 +350,185 @@ void MainWindow::toggleShuffle()
     {
         ui->shuffleButton->setText("🔀 Shuffle");
     }
+}
+QString MainWindow::playlistFilePath()
+{
+    QString dataLocation =
+        QStandardPaths::writableLocation(
+            QStandardPaths::AppDataLocation
+        );
+
+    QDir dir(dataLocation);
+
+    if (!dir.exists())
+    {
+        if (!dir.mkpath("."))
+        {
+            qDebug() << "Failed to create directory:"
+                     << dataLocation;
+        }
+    }
+
+    QString filePath =
+        dir.filePath("playlist.xml");
+
+    qDebug() << "Playlist XML:" << filePath;
+
+    return filePath;
+}
+void MainWindow::savePlaylist()
+{
+    QString filePath = playlistFilePath();
+
+    qDebug() << "Saving playlist...";
+    qDebug() << "File:" << filePath;
+    qDebug() << "Number of tracks:" << playlist.size();
+
+    QFile file(filePath);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        qDebug() << "ERROR: Cannot open playlist file for writing";
+        qDebug() << "Reason:" << file.errorString();
+        return;
+    }
+
+    QXmlStreamWriter xml(&file);
+
+    xml.setAutoFormatting(true);
+
+    xml.writeStartDocument();
+
+    xml.writeStartElement("playlist");
+
+    for (const MediaTrack &track : playlist)
+    {
+        qDebug() << "Saving track:"
+                 << track.title
+                 << track.filePath;
+
+        xml.writeStartElement("track");
+
+        xml.writeTextElement(
+            "title",
+            track.title
+        );
+
+        xml.writeTextElement(
+            "path",
+            track.filePath
+        );
+
+        xml.writeEndElement();
+    }
+
+    xml.writeEndElement();
+
+    xml.writeEndDocument();
+
+    file.close();
+
+        qDebug() << "Playlist saved successfully.";
+        qDebug() << "File exists:" << QFile::exists(filePath);
+        qDebug() << "================================";
+}
+void MainWindow::loadPlaylist()
+{
+    const QString filePath = playlistFilePath();
+
+    QFile file(filePath);
+
+    if (!file.exists())
+    {
+        qDebug() << "Playlist file does not exist:"
+                 << filePath;
+        return;
+    }
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        qDebug() << "Could not open playlist file:"
+                 << file.errorString();
+        return;
+    }
+
+    QXmlStreamReader xml(&file);
+
+    playlist.clear();
+
+    while (!xml.atEnd())
+    {
+        xml.readNext();
+
+        if (xml.isStartElement())
+        {
+            if (xml.name() == QStringLiteral("track"))
+            {
+                MediaTrack track;
+
+                while (!xml.atEnd())
+                {
+                    xml.readNext();
+
+                    if (xml.isStartElement())
+                    {
+                        if (xml.name() == QStringLiteral("title"))
+                        {
+                            track.title = xml.readElementText();
+                        }
+                        else if (xml.name() == QStringLiteral("path"))
+                        {
+                            track.filePath = xml.readElementText();
+                        }
+                    }
+
+                    if (xml.isEndElement() &&
+                        xml.name() == QStringLiteral("track"))
+                    {
+                        break;
+                    }
+                }
+
+                if (!track.filePath.isEmpty())
+                {
+                    playlist.append(track);
+                }
+            }
+        }
+    }
+
+    if (xml.hasError())
+    {
+        qDebug() << "XML parsing error:"
+                 << xml.errorString();
+    }
+
+    file.close();
+
+    qDebug() << "Playlist loaded:"
+             << playlist.size()
+             << "tracks";
+}
+void MainWindow::testPlaylistFile()
+{
+    QString path = playlistFilePath();
+
+    qDebug() << "TEST PATH:" << path;
+
+    QFile file(path);
+
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        qDebug() << "TEST FAILED:";
+        qDebug() << file.errorString();
+        return;
+    }
+
+    file.write("TEST PLAYLIST\n");
+
+    file.close();
+
+    qDebug() << "TEST FILE CREATED SUCCESSFULLY";
 }
 MainWindow::~MainWindow()
 {
